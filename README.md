@@ -181,7 +181,7 @@ Use this to check your network quickly, or over SSH where no window can open. Wi
 
 ```bash
 python -c "
-from services.network import NetworkMonitor
+from services.network.monitor import NetworkMonitor
 import time
 m = NetworkMonitor()
 m.collect_all()   # first reading
@@ -193,9 +193,9 @@ m.print_all()
 Example output:
 
 ```
-lo               up    127.0.0.1       send 907.2 B/s  recv 907.2 B/s
-wlp0s20f3        up    10.1.10.204     send 13.5 KB/s  recv 11.5 KB/s
-docker0          down  172.17.0.1      send 0.0 B/s  recv 0.0 B/s
+lo               UP     127.0.0.1            bytes sent: 4281893 bytes recv: 4281893 TX:       0.00 B/s  RX:       0.00 B/s
+wlp0s20f3        UP     10.1.10.204          bytes sent: 320723266 bytes recv: 1399806301 TX:     1.35 KiB/s  RX:     1.99 KiB/s
+docker0          DOWN   172.17.0.1           bytes sent: 0 bytes recv: 0 TX:       0.00 B/s  RX:       0.00 B/s
 ```
 
 To show a single interface, replace `m.print_all()` with `m.print_by_id("wlp0s20f3")`, using an interface name from your own list.
@@ -282,18 +282,56 @@ For anyone who wants to read or extend the code:
 ```
 NetPulse/
 ├── app.py               # Start here: opens the main window and its tabs
-├── utils.py             # format_bytes(): turns 1536 into "1.5 KB"
 ├── requirements.txt     # Python packages to install
 ├── images/              # App icon
 ├── services/            # Data collection (no GUI code)
-│   ├── base.py          # BaseMonitoring: the rules every monitor follows
-│   └── network.py       # NetworkMonitor: reads interface statistics
+│   └── network/
+│       ├── base.py      # BaseMonitoring: the rules every monitor follows
+│       ├── models.py    # Dataclasses that hold interface data, plus format_bytes()
+│       ├── monitor.py   # NetworkMonitor: reads interface statistics
+│       └── utils.py     # format_bytes(): turns 1536 into "1.5 KB"
 └── ui/                  # Windows and widgets
     └── network_view.py  # The Network tab's table
 ```
 
+### services/network
+
+Reads interface stats from psutil. No GUI code, so it works from a script too.
+
+- `monitor.py`: `NetworkMonitor`. `collect_all()` returns a list of `InterfaceStats`, `collect_by_id(name)` returns one or `None`.
+- `models.py`: the dataclasses below, plus `format_bytes()` (gives `1.50 KiB`, `None` gives `N/A`).
+- `base.py`: `BaseMonitoring`, the base class every monitor subclasses.
+- `utils.py`: the older `format_bytes()` (gives `1.5 KB`).
+
+Rates need two readings. The first `collect_all()` call returns `None` for every rate. `collect_by_id()` also counts as a reading.
+
+```
+InterfaceStats
+    name, is_up
+    duplex          "NIC_DUPLEX_FULL" / "NIC_DUPLEX_HALF" / "NIC_DUPLEX_UNKNOWN"
+    speed           Mb/s, 0 if unknown (loopback, Wi-Fi)
+    mtu             bytes
+    flags           e.g. "up,broadcast,running,multicast"
+    network_info    NetworkInfo
+    packets_sent, packets_recv, bytes_sent, bytes_recv    totals
+    errin, errout, dropin, dropout                        totals
+    traffic_rates   TrafficRates
+
+TrafficRates        None until the second reading
+    tx_packet_rate, rx_packet_rate    packets/s
+    tx_byte_rate, rx_byte_rate        bytes/s
+
+NetworkInfo
+    addresses       list of NetworkAddress (IPv4, IPv6, MAC)
+    gateway         not implemented yet, always None
+    .ipv4, .ipv6    addresses filtered by family
+
+NetworkAddress
+    family, address, netmask, broadcast, ptp
+```
+
 **To add a new tab**, for example a Connections tab:
 
-1. In `services/`, create a class that subclasses `BaseMonitoring` and implements `collect_all()` and `collect_by_id()`.
+1. In `services/`, create a class that subclasses `BaseMonitoring` (from `services/network/base.py`) and implements `collect_all()` and `collect_by_id()`.
 2. In `ui/`, create a widget that displays that data.
 3. In `app.py`, add one line inside `MainWindow`: `self.tabs.addTab(YourView(YourMonitor()), "Your tab name")`.

@@ -11,7 +11,8 @@ from PyQt6.QtWidgets import (
 from utils import format_bytes
 
 REFRESH_MS = 1000
-COLUMNS = ["Interface", "Status", "IPv4", "Send", "Receive", "Total sent", "Total received"]
+COLUMNS = ["Interface", "Status", "IPv4", "Send", "Receive", "Total sent", 
+           "Total received", "Total err/drops"]
 
 
 class NetworkView(QWidget):
@@ -41,6 +42,7 @@ class NetworkView(QWidget):
         self.table.setRowCount(len(interfaces))
 
         for row, iface in enumerate(interfaces):
+            print(row, iface)
             values = [
                 iface.name,
                 "Up" if iface.is_up else "Down",
@@ -49,7 +51,9 @@ class NetworkView(QWidget):
                 f"{format_bytes(iface.recv_rate)}/s",
                 format_bytes(iface.bytes_sent),
                 format_bytes(iface.bytes_recv),
+                f"{iface.errin + iface.errout + iface.dropin + iface.dropout}"
             ]
+            print(f"values: {values}")
             for col, value in enumerate(values):
                 self._set_cell(row, col, value)
 

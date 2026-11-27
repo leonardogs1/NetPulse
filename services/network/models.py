@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 
 def format_bytes(size: int | float | None, decimals: int = 2) -> str:
     if size is None:
-    	return "N/A"
+        return "N/A"
     units = ("B", "KiB", "MiB", "GiB", "TiB", "PiB")
     size = float(size)
     for unit in units[:-1]:
@@ -28,20 +28,41 @@ class NetworkInfo:
     """Network configuration associated with an interface"""
     addresses: list[NetworkAddress] = field(default_factory=list)
     gateway: str | None = None
- 
+
     @property
     def ipv4(self) -> list[NetworkAddress]:
         return [
                 addr for addr in self.addresses
                 if addr.family == socket.AF_INET
         ]
-    
+ 
     @property
     def ipv6(self) -> list[NetworkAddress]:
         return [
                 addr for addr in self.addresses
                 if addr.family == socket.AF_INET6
         ]
+    
+    def __str__(self):
+        addresses = [
+            (
+                f"  Family:    {getattr(addr.family, 'name', addr.family)}\n"
+                f"  Address:   {addr.address}\n"
+                f"  Netmask:   {addr.netmask}\n"
+                f"  Broadcast: {addr.broadcast}\n"
+                f"  PTP:       {addr.ptp}"
+            )
+            for addr in self.addresses
+        ]
+        return "\n\n".join(addresses) + f"\n\nGateway: {self.gateway}"
+
+
+@dataclass(frozen=True, slots=True)
+class TrafficRates:
+    tx_packet_rate: float | None = None
+    rx_packet_rate: float | None = None
+    tx_byte_rate: float | None = None
+    rx_byte_rate: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,9 +73,16 @@ class InterfaceStats:
     Rates are measured in bytes per second (B/s).
     A rate of None indicates insufficient measurement data.
     """
-
+    
+    # Nic system Information
     name: str
     is_up: bool
+    duplex: str # Either `NIC_DUPLEX_FULL`, `NIC_DUPLEX_HALF`, or `NIC_DUPLEX_UNKNOWN`
+    speed: int  # NIC's speed expreessed in MB; 0 if localhost
+    mtu: int    # Maximum tranmission init in Bytes
+    flags: str  # String of comma-separated flags on the interface (may be empty) 
+
+    # Allocated Addresses
     network_info: NetworkInfo
 
     # Cumulative traffic counters
@@ -70,9 +98,8 @@ class InterfaceStats:
     dropout: int
 
     # Average transfer rates (B/s)
-    send_rate: float | None = None
-    recv_rate: float | None = None
- 
+    traffic_rates: TrafficRates
+
     def __str__(self) -> str:
         status = "UP" if self.is_up else "DOWN"
         
@@ -81,14 +108,14 @@ class InterfaceStats:
                 ) or "-"
         
         send = (
-                f"{format_bytes(self.send_rate)}/s"
-                if self.send_rate is not None else "N/A"
+                f"{format_bytes(self.traffic_rates.tx_byte_rate)}/s"
+                if self.traffic_rates.tx_byte_rate is not None else "N/A"
         )
 
         recv = (
-                f"{format_bytes(self.recv_rate)}/s"
-                if self.recv_rate is not None else "N/A"
-	    )
+                f"{format_bytes(self.traffic_rates.rx_byte_rate)}/s"
+                if self.traffic_rates.rx_byte_rate is not None else "N/A"
+        )
  
         return (
                 f"{self.name:<16} "

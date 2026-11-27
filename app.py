@@ -5,8 +5,12 @@ from PyQt6.QtCore import QSize
 from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import QApplication, QMainWindow, QTabWidget
 
-from services.network import NetworkMonitor
+from services.network.monitor import NetworkMonitor
 from ui.network_view import NetworkView
+
+#from importlib.metadata import version # Gets value from pyproject.toml
+
+from psutil import LINUX
 
 
 def resolve_root():
@@ -32,12 +36,21 @@ class MainWindow(QMainWindow):
         # One tab per monitor. Add new ones here (e.g. Processes, Connections).
         self.tabs = QTabWidget()
         self.tabs.addTab(NetworkView(NetworkMonitor()), "Network")
+        #self.tabs.addTab(CpuView(CpuMonitor()), "CPU")
+        #self.tabs.addTab(ProcessView(ProcessMonitor()), "Process")
+        #self.tabs.addTab(MemoryView(MemoryMonitor()), "Memory")
+        #self.tabs.addTab(DisksView(DisksMonitor()), "Disks")
+        #self.tabs.addTab(SensorsView(SensorMonitor()),"Sensor")
         self.setCentralWidget(self.tabs)
 
         self.statusBar().showMessage(f"{APP_TITLE} v{APP_VERSION}")
 
 
 if __name__ == '__main__':
+    if not LINUX:
+        sys.exit("Error: 1.0.0 runs only on LINUX")
+    
+    #Create the Qt Application        
     app = QApplication(sys.argv)
     window = MainWindow()
     window.show()

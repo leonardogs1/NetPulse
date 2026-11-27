@@ -34,7 +34,7 @@ class BaseMonitoring(ABC):
         item = self.collect_by_id(item_id)
         print(item if item is not None else f"Nothing found with id {item_id!r}")
 
-    def poll(interval):
+    def poll(self, interval):
         """Retrive raw stats within an interval window"""
         pass
 
